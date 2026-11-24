@@ -1,0 +1,18 @@
+'use strict';
+const AI=(()=>{
+const keys=['name','food','fruit','job','purpose','style'];
+const labels={name:'이름',food:'좋아하는 음식',fruit:'좋아하는 과일',job:'하는 일',purpose:'AI 사용 목적',style:'선호하는 답변 방식'};
+const prompts=['어떻게 불러 드릴까요?','좋아하는 음식은 무엇인가요?','좋아하는 과일은 무엇인가요?','어떤 일을 하세요? 회사명은 안 적어도 됩니다.','이 AI로 가장 먼저 하고 싶은 일은 무엇인가요?','짧은 답과 자세한 설명 중 어느 쪽이 좋나요?','요즘 자주 쓰는 프로그램은 무엇인가요?','반복해서 하는 일 중 줄이고 싶은 일은 무엇인가요?','배우고 싶은 주제는 무엇인가요?','AI가 피했으면 하는 말투나 방식이 있나요?'];
+const fruits=['파인애플','사과','배','복숭아','포도','바나나','망고','딸기','귤','오렌지','키위','수박','참외','블루베리','체리','감','자두','멜론'];
+function statement(q){let m=q.match(/^(?:내\s*)?이름은\s*([가-힣a-zA-Z][가-힣a-zA-Z ]{1,22}?)(?:이야|야|입니다|이에요|예요)[.!]?$/);if(m)return ['name',m[1].trim()];m=q.match(/^(?:나는|난|저는|제가)\s+(.{1,150}?)(?:에서\s*(?:일하고\s*있어(?:요)?|일해(?:요)?)|에\s*다녀(?:요)?)[.!]?$/);if(m)return ['job',m[1]];m=q.match(/^(?:나는|난|저는|제가)\s+(.{1,100}?)(?:을|를)?\s*좋아(?:해요?|합니다)[.!]?$/);if(m){const s=m[1];return [fruits.includes(s)?'fruit':'food',s];}return null;}
+function decide(q, profile={}, interview=-1){q=q.trim();
+if(/(?:10\s*가지|열\s*가지|나에게\s*질문).{0,35}(?:질문|학습|물어)|나에게\s*(?:궁금|질문)/.test(q))return {interview:0,answer:'맞춤 질문을 한 번에 하나씩 할게요. 답은 이 브라우저의 기억에만 저장되고 모델 학습은 하지 않습니다. “건너뛰기”나 “그만”도 가능해요.\n\n1/10. '+prompts[0]};
+if(/(?:rag|학습|파인튜닝)/i.test(q)&&/(?:가능|학습|저장|기억|돼|되)/.test(q))return {answer:'지금 대화는 모델을 자동으로 학습시키지 않습니다. 내가 말한 이름·취향은 이 브라우저의 기억에, 추가한 자료는 이 브라우저의 참고 자료에 저장합니다. 모델 자체를 바꾸는 학습은 별도의 비공개 Colab에서 합니다.'};
+if(interview>=0){if(/^(그만|중단|취소)$/.test(q))return {interview:-1,answer:'맞춤 질문을 멈췄어요.'};const next=interview+1;return {interview:next>=10?-1:next,write:q==='건너뛰기'?null:[keys[interview]||'interview'+interview,q.slice(0,300)],answer:next>=10?'맞춤 질문이 끝났어요. 답을 이 브라우저에만 기억했어요.':(q==='건너뛰기'?'건너뛰었어요.':'기억했어요.')+'\n\n'+(next+1)+'/10. '+prompts[next]};}
+const parsed=statement(q);if(parsed)return {write:parsed,answer:labels[parsed[0]]+': '+parsed[1]+'. 이 브라우저에 기억했어요. 모델을 학습한 것은 아니에요.'};
+let k=null;if(/좋아하는\s*과일|무슨\s*과일.*좋아/.test(q))k='fruit';else if(/좋아하는\s*음식/.test(q))k='food';else if(/(?:내|제)\s*이름.*(?:뭐|무엇|기억)/.test(q))k='name';else if(/어디서\s*일|(?:내|제)\s*(?:일|직업|업무).*(?:뭐|무엇|기억)/.test(q))k='job';if(k){const subject=q.match(/^([가-힣]{2,5})(?:이|가)\s*좋아하는/);if(subject&&subject[1]!==profile.name)return {answer:'그분의 정보는 기억에 없어요.'};return {answer:profile[k]?labels[k]+': '+profile[k]:'아직 '+labels[k]+'을(를) 듣지 못했어요.'};}
+if(/네이버/.test(q)&&/검색|찾아|상품|열어/.test(q)){const match=q.match(/^(.{1,85}?)(?:을|를)?\s+네이버(?:로|에서|에)\s*(?:검색|찾아)/)||q.match(/네이버(?:로|에서|에)\s*(.{1,85}?)(?:을|를)?\s*(?:검색|찾아)/);const term=match?.[1].trim();if(!term)return {answer:'네이버에서 찾을 검색어를 짧게 적어 주세요.'};return {answer:/개당|최저|싼|상세|구매/.test(q)?'네이버 쇼핑 검색으로 연결합니다. 여기서는 상품 페이지를 직접 읽고 단가를 확인할 수 없어 최저 상품이나 상세페이지를 확인했다고 말하지 않습니다.':'네이버 검색 링크를 준비했어요. 이 웹 앱은 다른 탭을 대신 조작하지 않습니다.',url:/개당|최저|싼|상세|구매/.test(q)?'https://search.shopping.naver.com/search/all?query='+encodeURIComponent(term):'https://search.naver.com/search.naver?query='+encodeURIComponent(term)};}
+if(/(?:PC|컴퓨터|메모장|브라우저|탭|파일|폴더)/i.test(q)&&/(?:클릭|실행|열어|입력|삭제|설치|정리)\s*(?:해|해줘|줘|주세요|해 주세요)/.test(q))return {answer:'이 공개 웹 앱은 다른 프로그램이나 탭을 직접 제어할 수 없어요. 이 작업은 실행하지 않았습니다.'};
+return null;}
+function relevant(question,docs){const toks=question.toLowerCase().match(/[가-힣]{2,}|[a-z][a-z0-9-]{1,}/g)||[];const grams=s=>new Set(Array.from({length:Math.max(0,s.length-1)},(_,i)=>s.slice(i,i+2)));const rank=docs.flatMap(x=>x.text.split(/\n\s*\n/).flatMap(p=>p.match(/[\s\S]{1,650}/g)||[]).map(text=>{let t=text.toLowerCase(), g=grams(t);let score=[...new Set(toks)].reduce((n,w)=>n+(t.includes(w)?5:[...grams(w)].filter(a=>g.has(a)).length>=2?1:0),0);return {name:x.name,text,score};}));return rank.filter(a=>a.score>0).sort((a,b)=>b.score-a.score).slice(0,3);}
+return {decide,relevant,labels};})();
